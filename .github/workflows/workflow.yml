@@ -27,20 +27,20 @@ jobs:
           npm test  # Your actual test command here
 
       # Send failure data to New Relic if tests fail
-      - name: Send data to New Relic on failure
-        if: failure()  # This step will only run if previous steps fail
-        run: |
-          NEW_RELIC_API_URL="https://api.newrelic.com/v2/applications.json"
-          curl -X POST $NEW_RELIC_API_URL \
-            -H "X-Api-Key:${NEW_RELIC_LICENSE_KEY}" \
-            -H "Content-Type: application/json" \
-            -d '{
-                "application": {
-                    "name": "GitHub Actions CI Failure Notification",
-                    "build_status": "failed",
-                    "error_message": "Build failed during tests."
-                }
-            }'
+      # - name: Send data to New Relic on failure
+      #   if: failure()  # This step will only run if previous steps fail
+      #   run: |
+      #     NEW_RELIC_API_URL="https://api.newrelic.com/v2/applications.json"
+      #     curl -X POST $NEW_RELIC_API_URL \
+      #       -H "X-Api-Key:${NEW_RELIC_LICENSE_KEY}" \
+      #       -H "Content-Type: application/json" \
+      #       -d '{
+      #           "application": {
+      #               "name": "GitHub Actions CI Failure Notification",
+      #               "build_status": "failed",
+      #               "error_message": "Build failed during tests."
+      #           }
+      #       }'
 
       # Output success/failure message
       - name: Output result

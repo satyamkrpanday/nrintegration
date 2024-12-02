@@ -1,52 +1,55 @@
-name: CI/CD with New Relic Monitoring
+name: Apply New Relic Tags
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
-  ci:
+  apply-tags:
     runs-on: ubuntu-latest
-
     steps:
-      # Checkout the code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Set up New Relic License Key and Account ID
-      - name: Set up environment variables
+      - name: Install cURL and jq
         run: |
-          echo "NEW_RELIC_LICENSE_KEY=${{ secrets.NEW_RELIC_LICENSE_KEY }}" >> $GITHUB_ENV
-          echo "NEW_RELIC_ACCOUNT_ID=${{ secrets.NEW_RELIC_ACCOUNT_ID }}" >> $GITHUB_ENV
+          sudo apt-get update
+          sudo apt-get install -y curl jq
 
-      # Run actual tests (replace with your testing command)
-      - name: Run tests
+      - name: Read hostnames
+        id: read_hostnames
         run: |
-          echo "Running tests..."
-          npm test  # Your actual test command here
-
-      # Send failure data to New Relic if tests fail
-      # - name: Send data to New Relic on failure
-      #   if: failure()  # This step will only run if previous steps fail
-      #   run: |
-      #     NEW_RELIC_API_URL="https://api.newrelic.com/v2/applications.json"
-      #     curl -X POST $NEW_RELIC_API_URL \
-      #       -H "X-Api-Key:${NEW_RELIC_LICENSE_KEY}" \
-      #       -H "Content-Type: application/json" \
-      #       -d '{
-      #           "application": {
-      #               "name": "GitHub Actions CI Failure Notification",
-      #               "build_status": "failed",
-      #               "error_message": "Build failed during tests."
-      #           }
-      #       }'
-
-      # Output success/failure message
-      - name: Output result
+          hostnames=$(cat hostnames.txt)
+          echo "::set-output name=hostnames::$hostnames"
+          
+      - name: Read tags
+        id: read_tags
         run: |
-          if [ $? -eq 0 ]; then
-            echo "Tests passed."
-          else
-            echo "Tests failed."
-          fi
+          tags=$(cat tags.json)
+          echo "::set-output name=tags::$tags"
+          
+      - name: Fetch GUIDs and Apply Tags
+        env:
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}  # Add your API key in GitHub Secrets
+        run: |
+          # Fetch hostnames and tags from previous steps
+          hostnames="${{ steps.read_hostnames.outputs.hostnames }}"
+          tags="${{ steps.read_tags.outputs.tags }}"
+                    for hostname in $hostnames; do
+            # Fetch GUID for the hostname
+            guid=$(curl -s -X POST https://api.newrelic.com/graphql \
+              -H "Content-Type: application/json" \
+              -H "API-Key: $NEW_RELIC_API_KEY" \
+              --data-raw '{"query": "query { actor { entitySearch(query: \"name = '\'$hostname'\' and type like 'HOST'\") { results { entities { guid name } } } } }"}' \
+              | jq -r '.data.actor.entitySearch.results.entities[0].guid')
+
+            if [ "$guid" != "null" ]; then
+              # Apply tags using the fetched GUID
+              curl -X POST https://api.newrelic.com/graphql \
+                -H "Content-Type: application/json" \
+                -H "API-Key: $NEW_RELIC_API_KEY" \
+                --data-raw '{"query": "mutation { taggingAddTagsToEntity(guid: \"'$guid'\", tags: '"$tags"') { errors { message type } } }"}'
+              echo "Tags applied to $hostname ($guid)"
+            else
+              echo "GUID not found for hostname: $hostname"
+            if
+          done

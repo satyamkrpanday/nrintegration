@@ -1,4 +1,4 @@
-name: Monitor CI/CD with New Relic
+name: CI/CD with New Relic Monitoring
 
 on:
   push:
@@ -10,28 +10,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout code
+      # Checkout the code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set up New Relic environment variables (from GitHub Secrets)
+      # Set up New Relic License Key and Account ID
       - name: Set up environment variables
         run: |
           echo "NEW_RELIC_LICENSE_KEY=${{ secrets.NEW_RELIC_LICENSE_KEY }}" >> $GITHUB_ENV
           echo "NEW_RELIC_ACCOUNT_ID=${{ secrets.NEW_RELIC_ACCOUNT_ID }}" >> $GITHUB_ENV
 
-      # Step 3: Run some build/test commands
+      # Run actual tests (replace with your testing command)
       - name: Run tests
         run: |
-          # Simulate a test failure for the example (replace with your actual test commands)
           echo "Running tests..."
-          exit 1  # Simulating a failure
+          npm test  # Your actual test command here
 
-      # Step 4: Send failure data to New Relic (using REST API)
-      - name: Send data to New Relic API if failed
-        if: failure()  # This step only runs on failure
+      # Send failure data to New Relic if tests fail
+      - name: Send data to New Relic on failure
+        if: failure()  # This step will only run if previous steps fail
         run: |
-          # Send custom data to New Relic (like build failure information)
           NEW_RELIC_API_URL="https://api.newrelic.com/v2/applications.json"
           curl -X POST $NEW_RELIC_API_URL \
             -H "X-Api-Key:${NEW_RELIC_LICENSE_KEY}" \
@@ -44,7 +42,11 @@ jobs:
                 }
             }'
 
-      # Step 5: Output success/failure message
+      # Output success/failure message
       - name: Output result
         run: |
-          echo "GitHub Actions workflow complete."
+          if [ $? -eq 0 ]; then
+            echo "Tests passed."
+          else
+            echo "Tests failed."
+          fi

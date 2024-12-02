@@ -1,0 +1,50 @@
+name: Monitor CI/CD with New Relic
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up New Relic environment variables (from GitHub Secrets)
+      - name: Set up environment variables
+        run: |
+          echo "NEW_RELIC_LICENSE_KEY=${{ secrets.NEW_RELIC_LICENSE_KEY }}" >> $GITHUB_ENV
+          echo "NEW_RELIC_ACCOUNT_ID=${{ secrets.NEW_RELIC_ACCOUNT_ID }}" >> $GITHUB_ENV
+
+      # Step 3: Run some build/test commands
+      - name: Run tests
+        run: |
+          # Simulate a test failure for the example (replace with your actual test commands)
+          echo "Running tests..."
+          exit 1  # Simulating a failure
+
+      # Step 4: Send failure data to New Relic (using REST API)
+      - name: Send data to New Relic API if failed
+        if: failure()  # This step only runs on failure
+        run: |
+          # Send custom data to New Relic (like build failure information)
+          NEW_RELIC_API_URL="https://api.newrelic.com/v2/applications.json"
+          curl -X POST $NEW_RELIC_API_URL \
+            -H "X-Api-Key:${NEW_RELIC_LICENSE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{
+                "application": {
+                    "name": "GitHub Actions CI Failure Notification",
+                    "build_status": "failed",
+                    "error_message": "Build failed during tests."
+                }
+            }'
+
+      # Step 5: Output success/failure message
+      - name: Output result
+        run: |
+          echo "GitHub Actions workflow complete."
